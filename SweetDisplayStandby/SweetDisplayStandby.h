@@ -6,6 +6,9 @@
 #include <Windows.h>
 #include <lmaccess.h>
 
+#include <iostream>
+#include <fstream>
+
 #include <powrprof.h>
 
 #include "PhysicalMonitorEnumerationAPI.h"  
@@ -22,18 +25,22 @@
 #define IDT_TIMER1 1001
 
 std::vector<HANDLE> MonHandles;
-using namespace std;
 
-bool debug;
 
-LASTINPUTINFO LastInput;
-int idleTime;
+int screensaverTimeout;
+
 int displayDimTime;
 int displayOffTime;
 
 bool displayWasDimmed;
 bool displayWasTurnedOff;
 
-BOOL pwrStatus;
-EXECUTION_STATE cap;
-NTSTATUS status;
+
+
+
+VOID CALLBACK TimerProc(
+  _In_  HWND hwnd,
+  _In_  UINT uMsg,
+  _In_  UINT_PTR idEvent,
+  _In_  DWORD dwTime
+);

@@ -5,16 +5,9 @@
 #include "SweetDisplayStandby.h"
 
 #define MAX_LOADSTRING 100
+#define DEBUG 0
 
-// Global Variables:
-HINSTANCE hInst;								// current instance
-TCHAR szTitle[MAX_LOADSTRING];					// The title bar text
-TCHAR szWindowClass[MAX_LOADSTRING];			// the main window class name
-
-// Forward declarations of functions included in this code module:
-ATOM				MyRegisterClass(HINSTANCE hInstance);
-BOOL				InitInstance(HINSTANCE, int);
-LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
+using namespace std;
 
 
 void AddToMonHandles(HANDLE h)
@@ -60,7 +53,6 @@ void setDisplayTurnedOff(bool state)
 	{
 		SetVCPFeature(MonHandles[i], 0xD6, state ? POWER_OFF : POWER_ON);
 	}
-    displayWasTurnedOff=state;
 }
 
 void setDisplayDimmed(bool state)
@@ -71,7 +63,6 @@ void setDisplayDimmed(bool state)
 	{
 		SetMonitorBrightness(MonHandles[i], state ? 0 : 40);
 	}
-    displayWasDimmed=state;
 }
 
 
@@ -80,100 +71,14 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_ LPTSTR    lpCmdLine,
                      _In_ int       nCmdShow)
 {
-	UNREFERENCED_PARAMETER(hPrevInstance);
-	UNREFERENCED_PARAMETER(lpCmdLine);
-
- 	// TODO: Place code here.
 	MSG msg;
-	HACCEL hAccelTable;
 
-	// Initialize global strings
-	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-	LoadString(hInstance, IDC_SWEETDISPLAYSTANDBY, szWindowClass, MAX_LOADSTRING);
-	MyRegisterClass(hInstance);
-
-	// Perform application initialization:
-	if (!InitInstance (hInstance, nCmdShow))
-	{
-		return FALSE;
-	}
-
-	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_SWEETDISPLAYSTANDBY));
-
-
-
-
-	// Main message loop:
-	while (GetMessage(&msg, NULL, 0, 0))
-	{
-		if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-	}
-
-	return (int) msg.wParam;
-}
-
-
-
-//
-//  FUNCTION: MyRegisterClass()
-//
-//  PURPOSE: Registers the window class.
-//
-ATOM MyRegisterClass(HINSTANCE hInstance)
-{
-	WNDCLASSEX wcex;
-
-	wcex.cbSize = sizeof(WNDCLASSEX);
-
-	wcex.style			= CS_HREDRAW | CS_VREDRAW;
-	wcex.lpfnWndProc	= WndProc;
-	wcex.cbClsExtra		= 0;
-	wcex.cbWndExtra		= 0;
-	wcex.hInstance		= hInstance;
-	wcex.hIcon			= LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SWEETDISPLAYSTANDBY));
-	wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground	= (HBRUSH)(COLOR_WINDOW+1);
-	wcex.lpszMenuName	= MAKEINTRESOURCE(IDC_SWEETDISPLAYSTANDBY);
-	wcex.lpszClassName	= szWindowClass;
-	wcex.hIconSm		= LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
-
-	return RegisterClassEx(&wcex);
-}
-
-//
-//   FUNCTION: InitInstance(HINSTANCE, int)
-//
-//   PURPOSE: Saves instance handle and creates main window
-//
-//   COMMENTS:
-//
-//        In this function, we save the instance handle in a global variable and
-//        create and display the main program window.
-//
-BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
-{
-	HWND hWnd;
-
-	hInst = hInstance; // Store instance handle in our global variable
-
-	hWnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
-
-	if (!hWnd)
-	{
-		return FALSE;
-	}
+	
 
 	displayDimTime = 30;
 	displayOffTime = 5 * 60;
 
-	debug = false;
-
-	if (debug)
+	if (DEBUG)
 	{
 		displayDimTime = 5;
 		displayOffTime = 10;
@@ -181,101 +86,81 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	displayWasDimmed = false;
 	displayWasTurnedOff = false;
-	SetTimer(hWnd, IDT_TIMER1, 1000, (TIMERPROC)NULL);
+	SetTimer(NULL, IDT_TIMER1, 1000, TimerProc);
 	EnumDisplayMonitors(NULL, NULL, EnumProc, NULL);
 
-
-	//ShowWindow(hWnd, nCmdShow);
-	//UpdateWindow(hWnd);
-
-	return TRUE;
+	while (GetMessage(&msg, NULL, 0, 0))
+	{
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+	return 0;
 }
 
 
 
-
-//
-//  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
-//
-//  PURPOSE:  Processes messages for the main window.
-//
-//  WM_COMMAND	- process the application menu
-//  WM_PAINT	- Paint the main window
-//  WM_DESTROY	- post a quit message and return
-//
-//
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+VOID CALLBACK TimerProc(
+  _In_  HWND hwnd,
+  _In_  UINT uMsg,
+  _In_  UINT_PTR idEvent,
+  _In_  DWORD dwTime
+)
 {
-	int wmId, wmEvent;
-	PAINTSTRUCT ps;
-	HDC hdc;
+	LASTINPUTINFO LastInput = {};
+	LastInput.cbSize = sizeof(LastInput);
+	GetLastInputInfo(&LastInput);
+	int idleTime = (GetTickCount() - LastInput.dwTime)/1000;
 
-	switch (message)
+	if (DEBUG)
 	{
-	case WM_COMMAND:
-		wmId    = LOWORD(wParam);
-		wmEvent = HIWORD(wParam);
-		// Parse the menu selections:
-		switch (wmId)
-		{
-		case IDM_EXIT:
-			DestroyWindow(hWnd);
-			break;
-		default:
-			return DefWindowProc(hWnd, message, wParam, lParam);
-		}
-		break;
-	case WM_TIMER:
+		ofstream debugFile;
+
+		debugFile.open("log.txt");
+		debugFile << idleTime << endl;
+		debugFile.close();
+	}
+
+	if (idleTime>displayOffTime)
 	{
-		LASTINPUTINFO LastInput = {};
-		LastInput.cbSize = sizeof(LastInput);
-		::GetLastInputInfo(&LastInput);
-		int idleTime = (::GetTickCount() - LastInput.dwTime)/1000;
-		if (idleTime>displayOffTime)
+		if (!displayWasTurnedOff)
 		{
-			if (!displayWasTurnedOff)
+			EXECUTION_STATE cap;
+			NTSTATUS status;
+			status = CallNtPowerInformation(SystemExecutionState, NULL, 0, &cap, sizeof(cap));
+			if (!(cap & ES_DISPLAY_REQUIRED))
 			{
-				status = CallNtPowerInformation(SystemExecutionState, NULL, 0, &cap, sizeof(cap));
-				if (!(cap & ES_DISPLAY_REQUIRED) && !(cap & ES_SYSTEM_REQUIRED))
-				{
-					setDisplayTurnedOff(true);
-				}
-			}
-		}
-		else if (idleTime>displayDimTime)
-		{
-			if (!displayWasDimmed)
-			{
-				status = CallNtPowerInformation(SystemExecutionState, NULL, 0, &cap, sizeof(cap));
-				if (!(cap & ES_DISPLAY_REQUIRED) && !(cap & ES_SYSTEM_REQUIRED))
-				{
-					setDisplayDimmed(true);
-				}
-			}
-		}
-		else
-		{
-			if (displayWasTurnedOff)
-			{
-				setDisplayTurnedOff(false);
-			}
-			if (displayWasDimmed)
-			{
-				setDisplayDimmed(false);
+				displayWasTurnedOff=true;
+				setDisplayTurnedOff(true);
+				Sleep(2000);
 			}
 		}
 	}
-		break;
-	case WM_PAINT:
-		hdc = BeginPaint(hWnd, &ps);
-		// TODO: Add any drawing code here...
-		EndPaint(hWnd, &ps);
-		break;
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		break;
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
+	else if (idleTime>displayDimTime)
+	{
+		if (!displayWasDimmed)
+		{
+			EXECUTION_STATE cap;
+			NTSTATUS status;
+			status = CallNtPowerInformation(SystemExecutionState, NULL, 0, &cap, sizeof(cap));
+			if (!(cap & ES_DISPLAY_REQUIRED))
+			{
+				displayWasDimmed=true;
+				setDisplayDimmed(true);
+				Sleep(2000);
+			}
+		}
 	}
-	return 0;
+	else
+	{
+		if (displayWasTurnedOff)
+		{
+			displayWasTurnedOff=false;
+			setDisplayTurnedOff(false);
+		}
+		if (displayWasDimmed)
+		{
+			displayWasDimmed=false;
+			setDisplayDimmed(false);
+		}
+	}
 }
