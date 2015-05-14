@@ -63,10 +63,6 @@ SweetDisplayStandby::SweetDisplayStandby(QWidget *parent) :
 
     QStringList arguments = QCoreApplication::arguments();
     createTrayIcon();
-    if (!arguments.contains("--hide"))
-    {
-        trayIcon->show();
-    }
     setWindowFlags(Qt::WindowTitleHint | Qt::WindowSystemMenuHint |Qt:: WindowMinimizeButtonHint | Qt::WindowCloseButtonHint  | Qt::MSWindowsFixedSizeDialogHint );
 
     QCoreApplication::setOrganizationName("Vavooon");
@@ -77,6 +73,9 @@ SweetDisplayStandby::SweetDisplayStandby(QWidget *parent) :
     normalBrightnessLevel = settings->value("normalBrightnessLevel", 60).toInt();
     dimmedBrightnessLevel = settings->value("dimmedBrightnessLevel", 0).toInt();
     enableBrighnessManagement = settings->value("enableBrighnessManagement", true).toBool();
+    autoStartup = settings->value("autoStartup", false).toBool();
+    showTrayIcon = settings->value("showTrayIcon", true).toBool();
+    runMinimized = settings->value("runMinimized", true).toBool();
     turnOffSequence = QKeySequence( settings->value("turnOffSequence", "Ctrl+F1").toString() );
     restoreSequence = QKeySequence( settings->value("restoreSequence", "Ctrl+F12").toString() );
 
@@ -85,13 +84,14 @@ SweetDisplayStandby::SweetDisplayStandby(QWidget *parent) :
     ui->normalBrightnessLevelInput->setValue( normalBrightnessLevel );
     ui->dimmedBrightnessLevelInput->setValue( dimmedBrightnessLevel );
     ui->brightnessStateCheckBox->setChecked( enableBrighnessManagement );
-    ui->brightnessGroupBox->setDisabled(!enableBrighnessManagement);
-    ui->dimTimeInput->setDisabled(!enableBrighnessManagement);
+    ui->brightnessGroupBox->setEnabled(enableBrighnessManagement);
+    ui->dimTimeInput->setEnabled(enableBrighnessManagement);
+    ui->startupCheckBox->setChecked(autoStartup);
+    ui->trayCheckBox->setChecked(showTrayIcon);
+    ui->minimizedCheckBox->setChecked(runMinimized);
 
     ui->statusBar->showMessage("Display is active");
 
-    connect( ui->actionHideToTray, SIGNAL(triggered()), this, SLOT(hide()));
-    connect( ui->actionHideCompletely, SIGNAL(triggered()), this, SLOT(hideCompletely()) );
     connect( ui->actionAbout, SIGNAL(triggered(bool)), this, SLOT(aboutPopup()));
     connect( ui->actionProjectSite, SIGNAL(triggered(bool)), this, SLOT(openSite()) );
     connect( ui->actionExit, SIGNAL(triggered(bool)), this, SLOT( exit() ) );
@@ -101,6 +101,9 @@ SweetDisplayStandby::SweetDisplayStandby(QWidget *parent) :
     connect( ui->normalBrightnessLevelInput, SIGNAL( valueChanged(int)), this, SLOT(onNormalBrightnessLevelChange(int)) );
     connect( ui->dimmedBrightnessLevelInput, SIGNAL( valueChanged(int)), this, SLOT(onDimmedBrightnessLevelChange(int)) );
     connect( ui->brightnessStateCheckBox, SIGNAL(toggled(bool)), this, SLOT(onBrightnessStateChange(bool)) );
+    connect( ui->startupCheckBox, SIGNAL(toggled(bool)), this, SLOT(onStartupCheckBox(bool)) );
+    connect( ui->trayCheckBox, SIGNAL(toggled(bool)), this, SLOT(onTrayCheckBox(bool)) );
+    connect( ui->minimizedCheckBox, SIGNAL( toggled(bool)), this, SLOT(onMinimizeCheckBox(bool)) );
 //    connect( ui->allDisplaysRadio, SIGNAL(toggled(bool)), ui->displaysList, SLOT(setEnabled(bool)) );
 
     connect( ui->turnOffSequenceEdit, SIGNAL(keySequenceChanged(QKeySequence)), this, SLOT(updateTurnOffSequence(QKeySequence)) );
@@ -137,6 +140,17 @@ SweetDisplayStandby::SweetDisplayStandby(QWidget *parent) :
 
     addToQueue("turnOn");
     addToQueue("illuminate");
+
+
+    if (showTrayIcon)
+    {
+        trayIcon->show();
+    }
+
+    if (!runMinimized)
+    {
+        show();
+    }
 }
 
 SweetDisplayStandby::~SweetDisplayStandby()
@@ -339,19 +353,12 @@ void SweetDisplayStandby::onTrayClick(QSystemTrayIcon::ActivationReason reason)
     }
 }
 
-void SweetDisplayStandby::hideCompletely()
-{
-    hide();
-    trayIcon->hide();
-    qDebug() << QTime::currentTime().toString() <<"trying to hide";
-}
 
 void SweetDisplayStandby::restore()
 {
     setWindowState( (windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
     show();
     activateWindow(); // for Windows
-    trayIcon->show();
 }
 
 //void SweetDisplayStandby::addMonitorToList(PHYSICAL_MONITOR monitor )
@@ -391,10 +398,6 @@ bool SweetDisplayStandby::nativeEvent(const QByteArray & eventType, void * messa
         {
             addToQueue("turnOff", true);
         }
-//        else if ( msg->wParam == PBT_APMRESUMESUSPEND )
-//        {
-//            addToQueue("turnOn");
-//        }
     }
     else if (msg->message == WM_ENDSESSION)
     {
@@ -402,8 +405,6 @@ bool SweetDisplayStandby::nativeEvent(const QByteArray & eventType, void * messa
     }
     else if (msg->message == WM_DEVICECHANGE)
     {
-        //DEV_BROADCAST_DEVICEINTERFACE* info = (DEV_BROADCAST_DEVICEINTERFACE*) msg->lParam;
-
         switch(msg->wParam)
         {
             case DBT_DEVICEARRIVAL:
@@ -562,4 +563,48 @@ void SweetDisplayStandby::aboutPopup()
 void SweetDisplayStandby::openSite()
 {
     QDesktopServices::openUrl(QUrl("https://github.com/Vavooon/SweetDisplayStandby"));
+}
+
+void SweetDisplayStandby::onStartupCheckBox( bool value )
+{
+
+    settings->setValue("autoStartup", value);
+    HKEY hKey;
+    long regOpenResult;
+    LPCWSTR regPath= L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+    regOpenResult = RegCreateKey(HKEY_CURRENT_USER, regPath, &hKey);
+    LPCWSTR appName = L"SweetDisplayStandby";
+    if (value)
+    {
+        QString path = QApplication::applicationFilePath();
+        path.prepend("\"");
+        path.append("\"");
+        path.replace("/", "\\" );
+        RegSetValueEx(hKey, appName, 0, REG_SZ, (const LPBYTE)path.utf16(), path.size() * sizeof(QChar) );
+    }
+    else
+    {
+        RegDeleteValue(hKey, appName);
+    }
+    RegCloseKey(hKey);
+}
+
+void SweetDisplayStandby::onTrayCheckBox( bool value )
+{
+    settings->setValue("showTrayIcon", value);
+    showTrayIcon = value;
+    if (showTrayIcon)
+    {
+        trayIcon->show();
+    }
+    else
+    {
+        trayIcon->hide();
+    }
+}
+
+void SweetDisplayStandby::onMinimizeCheckBox( bool value )
+{
+    settings->setValue("runMinimized", value);
+    runMinimized = value;
 }

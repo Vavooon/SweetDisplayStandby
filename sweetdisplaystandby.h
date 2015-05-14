@@ -20,7 +20,7 @@
 #include <lowlevelmonitorconfigurationapi.h>
 #include <powrprof.h>
 #include "Dbt.h"
-//#include "Ntddvdeo.h"
+#include "Winreg.h"
 
 //Test includes, should be removed after
 
@@ -29,6 +29,9 @@
 #pragma comment(lib,"dxva2.lib")
 #pragma comment(lib,"PowrProf.lib")
 #pragma comment(lib,"User32.lib")
+#pragma comment(lib,"Advapi32.lib")
+
+
 
 
 #define POWER_ON                    0x01
@@ -86,6 +89,9 @@ class SweetDisplayStandby : public QMainWindow
         int normalBrightnessLevel;
         int dimmedBrightnessLevel;
         bool enableBrighnessManagement;
+        bool autoStartup;
+        bool showTrayIcon;
+        bool runMinimized;
         QKeySequence turnOffSequence;
         QKeySequence restoreSequence;
 
@@ -120,10 +126,11 @@ class SweetDisplayStandby : public QMainWindow
         void updateRestoreSequence(QKeySequence keySequence);
         void onTrayClick(QSystemTrayIcon::ActivationReason reason);
         void queueTimerTick();
-        void hideCompletely();
         void aboutPopup();
         void openSite();
-
+        void onStartupCheckBox(bool value);
+        void onTrayCheckBox(bool value);
+        void onMinimizeCheckBox( bool value );
 };
 
 #endif // SWEETDISPLAYSTANDBY_H
