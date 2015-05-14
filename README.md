@@ -21,3 +21,8 @@ I used Qt and icon from Faenza icon pack :)
 (Please tell me i case i should write about OSS usage somehow else.)
 
 It works only in Windows (7 and newer).
+
+Usage:
+
+Add executable file to Startup. You can also specify --hide option and it will run in background even without tray icon.
+Use Ctrl+F12 (selectable) shortcut to display the window.
