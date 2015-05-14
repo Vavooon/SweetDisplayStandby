@@ -17,8 +17,7 @@ SOURCES += main.cpp\
 
 HEADERS  += sweetdisplaystandby.h
 
-FORMS    += sweetdisplaystandby.ui \
-    about.ui
+FORMS    += sweetdisplaystandby.ui
 
 RESOURCES += \
     sweetdisplaystandby.qrc

@@ -61,7 +61,12 @@ SweetDisplayStandby::SweetDisplayStandby(QWidget *parent) :
 
     appIcon = QIcon(":/main/icon.png");
 
+    QStringList arguments = QCoreApplication::arguments();
     createTrayIcon();
+    if (!arguments.contains("--hide"))
+    {
+        trayIcon->show();
+    }
     setWindowFlags(Qt::WindowTitleHint | Qt::WindowSystemMenuHint |Qt:: WindowMinimizeButtonHint | Qt::WindowCloseButtonHint  | Qt::MSWindowsFixedSizeDialogHint );
 
     QCoreApplication::setOrganizationName("Vavooon");
@@ -295,7 +300,6 @@ void SweetDisplayStandby::createTrayIcon()
 
     trayIcon = new QSystemTrayIcon( this );
     trayIcon->setIcon(appIcon);
-    trayIcon->show();
     trayIcon->setContextMenu(trayIconMenu);
     connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(onTrayClick(QSystemTrayIcon::ActivationReason)) );
 }
